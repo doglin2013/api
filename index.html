@@ -1,1002 +1,1575 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="h-full">
+<html lang="zh-CN" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 多平台智能对话客户端</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Marked.js for Markdown parsing -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Highlight.js for code highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        /* Custom scrollbar and styling */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
-        .dark ::-webkit-scrollbar-thumb { background: #475569; }
-        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
-        .markdown-body pre { background-color: #1e293b !important; color: #f8fafc; border-radius: 0.5rem; padding: 1rem; margin-top: 0.5rem; margin-bottom: 0.5rem; overflow-x: auto; }
-        .markdown-body code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.875rem; }
-        .markdown-body p { margin-bottom: 0.75rem; }
-        .markdown-body p:last-child { margin-bottom: 0; }
-        .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
-        .markdown-body ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
-        .markdown-body blockquote { border-left: 4px solid #cbd5e1; padding-left: 1rem; color: #64748b; margin: 0.75rem 0; }
-    </style>
-</head>
-<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex overflow-hidden">
-
-    <!-- Mobile Sidebar Toggle Overlay -->
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden"></div>
-
-    <!-- Sidebar -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 w-72 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out">
-        <!-- Sidebar Header -->
-        <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
-                    <i class="fa-solid fa-brain"></i>
-                </div>
-                <span class="font-bold text-lg bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent">OmniChat AI</span>
-            </div>
-            <button id="close-sidebar" class="md:hidden text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-        </div>
-
-        <!-- New Chat Button -->
-        <div class="p-4">
-            <button onclick="createNewChat()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl flex items-center justify-center space-x-2 transition shadow-sm hover:shadow">
-                <i class="fa-solid fa-plus"></i>
-                <span>开启新对话</span>
-            </button>
-        </div>
-
-        <!-- Chat History List -->
-        <div class="flex-1 overflow-y-auto px-3 py-2 space-y-1" id="chat-list">
-            <!-- Dynamically populated -->
-        </div>
-
-        <!-- Sidebar Footer / Settings Trigger -->
-        <div class="p-3 border-t border-slate-200 dark:border-slate-700 space-y-2">
-            <button onclick="openPlatformModal()" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
-                <div class="flex items-center space-x-2.5">
-                    <i class="fa-solid fa-server text-indigo-500"></i>
-                    <span>API 平台管理</span>
-                </div>
-                <span id="platform-count" class="text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-semibold">0</span>
-            </button>
-            <button onclick="openSettingsModal()" class="w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
-                <i class="fa-solid fa-sliders text-purple-500"></i>
-                <span>模型参数设置</span>
-            </button>
-            <div class="flex items-center justify-between px-3 py-2">
-                <span class="text-xs text-slate-400">深色模式</span>
-                <button onclick="toggleDarkMode()" class="w-9 h-5 bg-slate-300 dark:bg-indigo-600 rounded-full relative transition focus:outline-none">
-                    <div id="dark-mode-thumb" class="w-4 h-4 bg-white rounded-full absolute top-0.5 left-0.5 dark:translate-x-4 transition-transform shadow-sm"></div>
-                </button>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col h-full md:ml-72 bg-white dark:bg-slate-900 relative">
-        <!-- Top Navigation Bar -->
-        <header class="h-16 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
-            <div class="flex items-center space-x-3">
-                <button id="open-sidebar" class="md:hidden text-slate-600 dark:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-                    <i class="fa-solid fa-bars text-lg"></i>
-                </button>
-                <div>
-                    <h1 id="current-chat-title" class="font-semibold text-slate-800 dark:text-slate-100 text-base truncate max-w-xs sm:max-w-md">新对话</h1>
-                    <p id="current-model-badge" class="text-xs text-slate-500 dark:text-slate-400">未选择模型</p>
-                </div>
-            </div>
-
-            <!-- Quick Model Selector & Parameter Bar in Header -->
-            <div class="flex items-center space-x-2">
-                <select id="quick-platform-select" onchange="onQuickPlatformChange()" class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <option value="">选择平台...</option>
-                </select>
-                <select id="quick-model-select" onchange="onQuickModelChange()" class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[120px] sm:max-w-[180px]">
-                    <option value="">选择模型...</option>
-                </select>
-                <button onclick="openSettingsModal()" class="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="参数设置">
-                    <i class="fa-solid fa-gear"></i>
-                </button>
-            </div>
-        </header>
-
-        <!-- Chat Messages Container -->
-        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-            <!-- Welcome screen when no messages -->
-            <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-4 py-12">
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl shadow-xl shadow-indigo-500/20">
-                    <i class="fa-solid fa-comments"></i>
-                </div>
-                <h2 class="text-2xl font-bold tracking-tight">欢迎使用 OmniChat AI</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400">请先在左下角添加您的 API 平台和密钥，或直接在上方选择平台和模型，即可开始智能对话。</p>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pt-4">
-                    <button onclick="openPlatformModal()" class="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-indigo-500 dark:hover:border-indigo-500 transition text-left group">
-                        <div class="font-medium text-sm text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">1. 配置平台 API</div>
-                        <div class="text-xs text-slate-400 mt-0.5">添加 OpenAI 兼容接口</div>
-                    </button>
-                    <button onclick="quickSelectFirstPlatform()" class="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-indigo-500 dark:hover:border-indigo-500 transition text-left group">
-                        <div class="font-medium text-sm text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">2. 选择对话模型</div>
-                        <div class="text-xs text-slate-400 mt-0.5">挑选心仪的大语言模型</div>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Chat Input Area -->
-        <div class="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
-            <div class="max-w-4xl mx-auto">
-                <div class="relative bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 focus-within:border-indigo-500 dark:focus-within:border-indigo-500 transition shadow-sm">
-                    <textarea id="user-input" rows="1" placeholder="输入您想问的问题... (Shift + Enter 换行)" class="w-full bg-transparent px-4 py-3.5 pr-24 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none resize-none max-h-36 text-sm" onkeydown="handleKeydown(event)" oninput="autoResize(this)"></textarea>
-                    
-                    <div class="absolute right-2 bottom-2 flex items-center space-x-1">
-                        <button id="stop-btn" onclick="stopGeneration()" class="hidden w-9 h-9 items-center justify-center bg-rose-500 hover:bg-rose-600 text-white rounded-xl transition shadow" title="停止生成">
-                            <i class="fa-solid fa-stop text-xs"></i>
-                        </button>
-                        <button id="send-btn" onclick="sendMessage()" class="w-9 h-9 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition shadow disabled:opacity-40 disabled:hover:bg-indigo-600" title="发送消息">
-                            <i class="fa-solid fa-paper-plane text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between mt-2 px-1 text-xs text-slate-400">
-                    <div class="flex items-center space-x-3">
-                        <span id="token-estimate">Token 计数估算: 0</span>
-                        <span>•</span>
-                        <span id="status-text">就绪</span>
-                    </div>
-                    <span>AI 可能会犯错，请核实重要信息。</span>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Platform Management Modal -->
-    <div id="platform-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700 mx-4 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-server text-indigo-500 text-lg"></i>
-                    <h3 class="font-bold text-lg">API 平台管理</h3>
-                </div>
-                <button onclick="closePlatformModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-            
-            <div class="p-6 overflow-y-auto space-y-6 flex-1">
-                <div class="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-4 text-xs text-indigo-700 dark:text-indigo-300 flex items-start space-x-3">
-                    <i class="fa-solid fa-circle-info text-base mt-0.5"></i>
-                    <div>
-                        <p class="font-semibold mb-1">支持所有兼容 OpenAI 格式的 API 接口</p>
-                        <p>您可以添加 OpenAI、DeepSeek、Anthropic (通过代理)、Ollama 本地大模型、智谱 AI、通义千问等自定义 Base URL 与 API Key。</p>
-                    </div>
-                </div>
-
-                <!-- Platform List -->
-                <div id="platforms-container" class="space-y-4">
-                    <!-- Dynamically filled -->
-                </div>
-
-                <button onclick="addNewPlatformCard()" class="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl font-medium text-sm flex items-center justify-center space-x-2 transition">
-                    <i class="fa-solid fa-plus"></i>
-                    <span>添加新平台</span>
-                </button>
-            </div>
-
-            <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end space-x-3 bg-slate-50 dark:bg-slate-800/50">
-                <button onclick="closePlatformModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-700 transition">取消</button>
-                <button onclick="savePlatforms()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium shadow transition">保存配置</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Settings & Parameters Modal -->
-    <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700 mx-4 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-sliders text-purple-500 text-lg"></i>
-                    <h3 class="font-bold text-lg">模型参数与系统提示词</h3>
-                </div>
-                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-
-            <div class="p-6 overflow-y-auto space-y-5 flex-1 text-sm">
-                <!-- System Prompt -->
-                <div>
-                    <label class="block font-medium text-slate-700 dark:text-slate-300 mb-1.5">系统提示词 (System Prompt)</label>
-                    <textarea id="setting-system-prompt" rows="3" placeholder="例如：你是一个高效的编程助手，精通 JavaScript 与 Python..." class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs"></textarea>
-                </div>
-
-                <!-- Temperature -->
-                <div>
-                    <div class="flex justify-between mb-1.5">
-                        <label class="font-medium text-slate-700 dark:text-slate-300">温度 (Temperature)</label>
-                        <span id="temp-val" class="font-mono text-purple-600 dark:text-purple-400 font-semibold">0.7</span>
-                    </div>
-                    <input type="range" id="setting-temp" min="0" max="2" step="0.1" value="0.7" oninput="document.getElementById('temp-val').innerText=this.value" class="w-full accent-purple-600">
-                    <p class="text-xs text-slate-400 mt-1">值越高回答越具创造力，值越低回答越严谨保守。</p>
-                </div>
-
-                <!-- Max Tokens -->
-                <div>
-                    <div class="flex justify-between mb-1.5">
-                        <label class="font-medium text-slate-700 dark:text-slate-300">最大回复 Token 数 (Max Tokens)</label>
-                        <span id="tokens-val" class="font-mono text-purple-600 dark:text-purple-400 font-semibold">2048</span>
-                    </div>
-                    <input type="range" id="setting-maxtokens" min="256" max="8192" step="256" value="2048" oninput="document.getElementById('tokens-val').innerText=this.value" class="w-full accent-purple-600">
-                </div>
-
-                <!-- Top P -->
-                <div>
-                    <div class="flex justify-between mb-1.5">
-                        <label class="font-medium text-slate-700 dark:text-slate-300">核采样 (Top P)</label>
-                        <span id="topp-val" class="font-mono text-purple-600 dark:text-purple-400 font-semibold">1.0</span>
-                    </div>
-                    <input type="range" id="setting-topp" min="0" max="1" step="0.05" value="1.0" oninput="document.getElementById('topp-val').innerText=this.value" class="w-full accent-purple-600">
-                </div>
-            </div>
-
-            <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end space-x-3 bg-slate-50 dark:bg-slate-800/50">
-                <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-700 transition">取消</button>
-                <button onclick="saveSettings()" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium shadow transition">保存设置</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-sm">
-        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
-        <span id="toast-msg">操作成功</span>
-    </div>
-
-    <script>
-        // --- State Management ---
-        let state = {
-            darkMode: false,
-            platforms: [
-                {
-                    id: 'default-openai',
-                    name: 'OpenAI 官方',
-                    baseUrl: 'https://api.openai.com/v1',
-                    apiKey: '',
-                    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo']
-                }
-            ],
-            currentPlatformId: 'default-openai',
-            currentModel: 'gpt-4o-mini',
-            settings: {
-                systemPrompt: 'You are a helpful, respectful, and honest assistant.',
-                temperature: 0.7,
-                maxTokens: 2048,
-                topP: 1.0
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Studio - 多平台聚合智能对话客户端</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
             },
-            chats: [],
-            currentChatId: null
+            dark: {
+              bg: '#090d16',
+              surface: '#111827',
+              card: '#1e293b',
+              border: '#334155'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Marked.js for Markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
+  <!-- Highlight.js for code block syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <style>
+    /* Custom scrollbar for refined desktop feel */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Markdown prose styles inside AI bubble */
+    .prose-ai {
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      word-break: break-word;
+    }
+    .prose-ai p { margin-bottom: 0.75rem; }
+    .prose-ai p:last-child { margin-bottom: 0; }
+    .prose-ai h1, .prose-ai h2, .prose-ai h3, .prose-ai h4 {
+      color: #f8fafc;
+      font-weight: 600;
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .prose-ai ul, .prose-ai ol {
+      margin-left: 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+    .prose-ai ul { list-style-type: disc; }
+    .prose-ai ol { list-style-type: decimal; }
+    .prose-ai code:not(pre code) {
+      background: #1e293b;
+      color: #38bdf8;
+      padding: 0.15rem 0.35rem;
+      border-radius: 0.25rem;
+      font-size: 0.875em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .prose-ai pre {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 0.5rem;
+      margin: 0.75rem 0;
+      overflow-x: auto;
+      position: relative;
+    }
+    .prose-ai pre code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      padding: 1rem;
+      display: block;
+      font-size: 0.875rem;
+    }
+    .prose-ai blockquote {
+      border-left: 3px solid #6366f1;
+      padding-left: 0.75rem;
+      color: #94a3b8;
+      font-style: italic;
+      margin: 0.75rem 0;
+    }
+    .prose-ai table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.75rem 0;
+    }
+    .prose-ai th, .prose-ai td {
+      border: 1px solid #334155;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+    }
+    .prose-ai th {
+      background-color: #1e293b;
+      font-weight: 600;
+    }
+    
+    /* Code block header bar */
+    .code-block-wrapper {
+      position: relative;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      margin: 0.75rem 0;
+      border: 1px solid #334155;
+    }
+    .code-block-header {
+      background: #1e293b;
+      padding: 0.35rem 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      border-bottom: 1px solid #334155;
+    }
+
+    /* Pulsing stream cursor */
+    .typing-cursor::after {
+      content: '▋';
+      display: inline-block;
+      color: #6366f1;
+      animation: blink 1s infinite;
+      margin-left: 2px;
+      font-size: 0.85em;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+
+<body class="bg-[#090d16] text-slate-100 font-sans h-screen flex overflow-hidden select-none">
+
+  <!-- Mobile Sidebar Backdrop -->
+  <div id="sidebarBackdrop" onclick="toggleSidebar(false)" class="fixed inset-0 bg-black/60 z-30 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
+
+  <!-- Left Sidebar (Sessions, Platform Switcher & Config) -->
+  <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-72 bg-[#111827] border-r border-slate-800 flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0">
+    
+    <!-- Sidebar Header -->
+    <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <i class="fa-solid fa-brain text-white text-sm"></i>
+        </div>
+        <span class="font-bold text-base tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">AI Studio Pro</span>
+      </div>
+      <button onclick="toggleSidebar(false)" class="md:hidden text-slate-400 hover:text-white p-1">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    <div class="p-3">
+      <button onclick="createNewChat()" class="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white text-sm font-medium rounded-xl shadow-md shadow-indigo-600/20 transition-all">
+        <i class="fa-solid fa-plus text-xs"></i>
+        <span>新建对话</span>
+      </button>
+
+      <!-- Active Platform Quick Glance -->
+      <div onclick="openSettingsModal('platforms')" class="mt-3 p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 rounded-xl cursor-pointer transition-all flex items-center justify-between group">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+          <div class="truncate">
+            <div id="sidebarPlatformName" class="text-xs font-semibold text-slate-200 truncate">OpenAI 平台</div>
+            <div id="sidebarModelName" class="text-[11px] text-slate-400 truncate">gpt-4o</div>
+          </div>
+        </div>
+        <i class="fa-solid fa-sliders text-xs text-slate-500 group-hover:text-indigo-400 transition-colors"></i>
+      </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto px-2 py-1 space-y-1" id="chatSessionsList">
+      <!-- Chat history items injected here via JS -->
+    </div>
+
+    <!-- Sidebar Footer (Settings & Clear) -->
+    <div class="p-3 border-t border-slate-800 space-y-1 bg-[#111827]">
+      <button onclick="openSettingsModal('platforms')" class="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800/80 rounded-lg transition-colors">
+        <i class="fa-solid fa-cloud text-indigo-400 w-4 text-center"></i>
+        <span>平台与 API 设置</span>
+      </button>
+      <button onclick="openSettingsModal('params')" class="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800/80 rounded-lg transition-colors">
+        <i class="fa-solid fa-sliders text-emerald-400 w-4 text-center"></i>
+        <span>模型超参数微调</span>
+      </button>
+      <button onclick="exportImportDataModal()" class="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-lg transition-colors">
+        <i class="fa-solid fa-database text-amber-400 w-4 text-center"></i>
+        <span>数据备份与还原</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="flex-1 flex flex-col h-full bg-[#090d16] relative overflow-hidden">
+    
+    <!-- Top Action Navigation Bar -->
+    <header class="h-14 border-b border-slate-800/80 bg-[#111827]/70 backdrop-blur-md px-4 flex items-center justify-between shrink-0 z-10">
+      <div class="flex items-center gap-3 min-w-0">
+        <button onclick="toggleSidebar(true)" class="md:hidden text-slate-400 hover:text-white p-1.5 rounded-lg border border-slate-800">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="min-w-0">
+          <h2 id="currentChatTitle" class="text-sm font-semibold text-slate-100 truncate max-w-xs md:max-w-md">新的对话</h2>
+          <div class="flex items-center gap-2 text-[11px] text-slate-400">
+            <span id="headerPlatformBadge" class="bg-indigo-950 text-indigo-300 border border-indigo-800/50 px-1.5 py-0.2 rounded font-mono">OpenAI</span>
+            <span id="headerModelBadge" class="truncate font-mono">gpt-4o</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-1.5">
+        <button onclick="clearCurrentChatMessages()" title="清空当前消息" class="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors text-xs flex items-center gap-1">
+          <i class="fa-regular fa-trash-can"></i>
+          <span class="hidden sm:inline">清空</span>
+        </button>
+        <button onclick="openSettingsModal('params')" title="调改参数" class="p-2 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded-lg transition-colors text-xs flex items-center gap-1">
+          <i class="fa-solid fa-sliders"></i>
+          <span class="hidden sm:inline">参数</span>
+        </button>
+      </div>
+    </header>
+
+    <section id="messagesContainer" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+      <!-- Dynamic messages will be injected here -->
+      <div id="welcomePlaceholder" class="h-full flex flex-col items-center justify-center text-center max-w-lg mx-auto p-4">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-4 text-indigo-400 text-2xl shadow-inner">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </div>
+        <h3 class="text-xl font-bold text-slate-200 mb-2">多平台大模型聚合工作台</h3>
+        <p class="text-xs text-slate-400 mb-6 leading-relaxed">
+          支持接入 OpenAI、DeepSeek、硅基流动、月之暗面 (Kimi)、Ollama 本地大模型及任意 OpenAI 兼容协议。配置 API Key 即刻开始畅聊！
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
+          <button onclick="quickFillPrompt('解释一下量子计算的基本原理，并用生动的比喻说明。')" class="p-3 bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 rounded-xl transition text-xs group">
+            <div class="font-medium text-slate-300 group-hover:text-indigo-300 flex items-center justify-between">
+              <span>🔬 解释量子计算</span>
+              <i class="fa-solid fa-arrow-up-right text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"></i>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1 truncate">用生动比喻解释叠加态与纠缠</p>
+          </button>
+          
+          <button onclick="quickFillPrompt('写一个 Python 脚本，支持并发下载多张图片并处理异常。')" class="p-3 bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 rounded-xl transition text-xs group">
+            <div class="font-medium text-slate-300 group-hover:text-indigo-300 flex items-center justify-between">
+              <span>💻 并发 Python 脚本</span>
+              <i class="fa-solid fa-arrow-up-right text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"></i>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1 truncate">包含多线程与完善的重试逻辑</p>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="p-3 md:p-4 bg-[#111827]/90 border-t border-slate-800 shrink-0 backdrop-blur-md">
+      <div class="max-w-4xl mx-auto">
+        
+        <!-- Live status notification tag (e.g. streaming, abort status) -->
+        <div id="streamStatusBadge" class="hidden mb-2 items-center justify-between text-xs px-3 py-1.5 rounded-lg bg-indigo-950/60 border border-indigo-800/40 text-indigo-300">
+          <span class="flex items-center gap-2">
+            <i class="fa-solid fa-circle-notch fa-spin text-indigo-400"></i>
+            <span id="streamStatusText">大模型思考生成中...</span>
+          </span>
+          <button onclick="abortCurrentStream()" class="hover:text-white px-2 py-0.5 rounded bg-rose-600/60 hover:bg-rose-600 text-rose-100 text-[11px] transition">
+            <i class="fa-solid fa-stop mr-1"></i>停止响应
+          </button>
+        </div>
+
+        <div class="relative flex items-end gap-2 bg-[#090d16] border border-slate-700/80 focus-within:border-indigo-500 rounded-2xl p-2 transition-all shadow-inner">
+          <textarea 
+            id="chatInput" 
+            rows="1" 
+            placeholder="输入消息，Enter 发送，Shift + Enter 换行..."
+            class="flex-1 max-h-48 resize-none bg-transparent px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none leading-relaxed"
+            onkeydown="handleTextareaKeydown(event)"
+            oninput="autoResizeTextarea(this)"></textarea>
+
+          <div class="flex items-center gap-1.5 shrink-0 self-end pb-0.5">
+            <button 
+              id="sendBtn" 
+              onclick="sendMessage()" 
+              class="w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-indigo-600/30">
+              <i class="fa-solid fa-paper-plane text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mt-2 px-1 text-[11px] text-slate-500">
+          <span class="flex items-center gap-2">
+            <span>当前流式传输: <b id="footerStreamTag" class="text-slate-400">开</b></span>
+            <span>•</span>
+            <span>Temp: <b id="footerTempTag" class="text-slate-400">0.7</b></span>
+          </span>
+          <span>按 <kbd class="px-1 py-0.5 bg-slate-800 rounded text-slate-400">Shift + Enter</kbd> 换行</span>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4">
+    <div class="bg-[#111827] border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Modal Header -->
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center">
+            <i class="fa-solid fa-sliders text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-100 text-sm">配置中心与参数调改</h3>
+            <p class="text-[11px] text-slate-400">管理 API 服务商接入及大语言模型推演参数</p>
+          </div>
+        </div>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Modal Tabs Navigation -->
+      <div class="flex border-b border-slate-800 bg-slate-900/60 px-5 shrink-0">
+        <button id="tabBtnPlatforms" onclick="switchSettingsTab('platforms')" class="py-2.5 px-4 text-xs font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2">
+          <i class="fa-solid fa-server"></i>平台与 API
+        </button>
+        <button id="tabBtnParams" onclick="switchSettingsTab('params')" class="py-2.5 px-4 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-microchip"></i>超参数微调
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-5 space-y-4">
+        
+        <!-- Tab 1: Platforms & Keys -->
+        <div id="tabContentPlatforms" class="space-y-4">
+          <!-- Platform Preset Selector -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">选择或新建平台预设</label>
+            <div class="flex gap-2">
+              <select id="platformSelect" onchange="onPlatformSelected(this.value)" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                <!-- Injected via JS -->
+              </select>
+              <button onclick="addNewCustomPlatform()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-medium rounded-xl border border-slate-700 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-plus text-[10px]"></i>新建自定义
+              </button>
+              <button id="deletePlatformBtn" onclick="deleteCurrentPlatform()" class="px-3 py-2 bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 text-xs font-medium rounded-xl border border-rose-900/50 flex items-center gap-1 transition">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Platform Name -->
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">平台显示名称</label>
+            <input id="inputPlatformName" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="例如: DeepSeek 官方">
+          </div>
+
+          <!-- Base URL -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-xs font-medium text-slate-300">Base URL (接口基础路径)</label>
+              <span class="text-[10px] text-slate-500">自动补齐 /chat/completions</span>
+            </div>
+            <input id="inputBaseUrl" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500" placeholder="https://api.openai.com/v1">
+          </div>
+
+          <!-- API Key Input with Visibility Toggle -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-xs font-medium text-slate-300">API Key</label>
+              <span class="text-[10px] text-emerald-400"><i class="fa-solid fa-shield-halved mr-1"></i>纯前端本地保存，不经过中转</span>
+            </div>
+            <div class="relative">
+              <input id="inputApiKey" type="password" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-3 pr-10 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500" placeholder="sk-...">
+              <button type="button" onclick="toggleApiKeyVisibility()" class="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 text-xs">
+                <i id="apiKeyEyeIcon" class="fa-regular fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-medium text-slate-300">模型选择 (Model)</label>
+              <button type="button" onclick="fetchPlatformModels()" class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium transition">
+                <i id="fetchModelSpinner" class="fa-solid fa-arrows-rotate"></i>
+                <span>拉取最新模型列表</span>
+              </button>
+            </div>
+            <div class="space-y-2">
+              <select id="modelDropdown" onchange="onModelDropdownSelected(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+                <!-- Models dynamic list -->
+              </select>
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] text-slate-500 shrink-0">或自定义模型名:</span>
+                <input id="inputCustomModel" type="text" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500" placeholder="deepseek-reasoner 或 gpt-4o">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Hyperparameters & Prompt -->
+        <div id="tabContentParams" class="space-y-4 hidden">
+          <!-- System Prompt with Quick Templates -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-semibold text-slate-300">系统提示词 (System Prompt)</label>
+              <div class="flex gap-1 text-[11px]">
+                <button onclick="setPromptTemplate('general')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded">通用助手</button>
+                <button onclick="setPromptTemplate('developer')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded">全栈开发</button>
+                <button onclick="setPromptTemplate('translator')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded">学术翻译</button>
+              </div>
+            </div>
+            <textarea id="paramSystemPrompt" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed" placeholder="输入预设的助手角色指令..."></textarea>
+          </div>
+
+          <!-- Sliders Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <!-- Temperature -->
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <div class="flex justify-between text-xs mb-1.5">
+                <span class="font-medium text-slate-300">Temperature (随机性/发散度)</span>
+                <span id="valTemp" class="font-mono text-indigo-400">0.7</span>
+              </div>
+              <input id="paramTemp" type="range" min="0" max="2" step="0.1" value="0.7" oninput="document.getElementById('valTemp').innerText = this.value" class="w-full accent-indigo-500 cursor-pointer">
+              <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                <span>0 (精确稳定)</span>
+                <span>1 (平衡)</span>
+                <span>2 (极度发散)</span>
+              </div>
+            </div>
+
+            <!-- Top P -->
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <div class="flex justify-between text-xs mb-1.5">
+                <span class="font-medium text-slate-300">Top P (核心采样)</span>
+                <span id="valTopP" class="font-mono text-indigo-400">1.0</span>
+              </div>
+              <input id="paramTopP" type="range" min="0" max="1" step="0.05" value="1.0" oninput="document.getElementById('valTopP').innerText = this.value" class="w-full accent-indigo-500 cursor-pointer">
+              <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                <span>0 (聚焦)</span>
+                <span>1.0 (全概率分布)</span>
+              </div>
+            </div>
+
+            <!-- Max Tokens -->
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Max Tokens (最大单次回复长度)</label>
+              <input id="paramMaxTokens" type="number" min="256" max="128000" step="256" value="4096" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <!-- Stream Toggle Switch -->
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div>
+                <div class="text-xs font-medium text-slate-300">流式传输 (Stream SSE)</div>
+                <div class="text-[10px] text-slate-500">逐字打印打字机效果</div>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input id="paramStream" type="checkbox" checked class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-3 border-t border-slate-800 flex justify-end gap-2.5 bg-slate-900/40 shrink-0">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl transition">
+          取消
+        </button>
+        <button onclick="saveAllSettings()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-check text-xs"></i>
+          <span>保存生效</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="backupModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-3">
+    <div class="bg-[#111827] border border-slate-800 rounded-2xl w-full max-w-lg p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h4 class="font-bold text-slate-100 text-sm flex items-center gap-2">
+          <i class="fa-solid fa-database text-amber-400"></i> 数据备份与迁移
+        </h4>
+        <button onclick="document.getElementById('backupModal').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-400">你可以将所有平台配置、历史聊天记录完整导出为 JSON 文件，或从备份文件恢复。</p>
+      
+      <div class="flex gap-3">
+        <button onclick="exportDataToFile()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition">
+          <i class="fa-solid fa-file-arrow-down text-indigo-400"></i> 导出完整备份
+        </button>
+        <label class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-medium flex items-center justify-center gap-2 cursor-pointer transition">
+          <i class="fa-solid fa-file-arrow-up text-emerald-400"></i> 导入恢复文件
+          <input type="file" accept=".json" onchange="importDataFromFile(event)" class="hidden">
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toast Notifications Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm"></div>
+
+  <script>
+    const STORAGE_KEY = 'aistudio_v2_data';
+
+    // Preset configurations for common OpenAI-compatible platforms
+    const DEFAULT_PRESETS = [
+      {
+        id: 'deepseek',
+        name: 'DeepSeek 官方',
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiKey: '',
+        model: 'deepseek-chat',
+        availableModels: ['deepseek-chat', 'deepseek-reasoner']
+      },
+      {
+        id: 'openai',
+        name: 'OpenAI 官方',
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: '',
+        model: 'gpt-4o',
+        availableModels: ['gpt-4o', 'gpt-4o-mini', 'o1', 'o3-mini', 'gpt-4-turbo']
+      },
+      {
+        id: 'siliconflow',
+        name: '硅基流动 (SiliconFlow)',
+        baseUrl: 'https://api.siliconflow.cn/v1',
+        apiKey: '',
+        model: 'deepseek-ai/DeepSeek-V3',
+        availableModels: [
+          'deepseek-ai/DeepSeek-V3',
+          'deepseek-ai/DeepSeek-R1',
+          'Qwen/Qwen2.5-72B-Instruct',
+          'internlm/internlm2_5-20b-chat'
+        ]
+      },
+      {
+        id: 'moonshot',
+        name: '月之暗面 (Moonshot / Kimi)',
+        baseUrl: 'https://api.moonshot.cn/v1',
+        apiKey: '',
+        model: 'moonshot-v1-8k',
+        availableModels: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k']
+      },
+      {
+        id: 'ollama',
+        name: 'Ollama 本地大模型',
+        baseUrl: 'http://localhost:11434/v1',
+        apiKey: 'ollama',
+        model: 'llama3.2',
+        availableModels: ['llama3.2', 'qwen2.5', 'deepseek-r1']
+      },
+      {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        apiKey: '',
+        model: 'deepseek/deepseek-r1',
+        availableModels: [
+          'deepseek/deepseek-r1',
+          'deepseek/deepseek-chat',
+          'anthropic/claude-3.5-sonnet',
+          'google/gemini-2.0-flash-exp'
+        ]
+      }
+    ];
+
+    let appState = {
+      platforms: JSON.parse(JSON.stringify(DEFAULT_PRESETS)),
+      activePlatformId: 'deepseek',
+      params: {
+        systemPrompt: '你是一个知识渊博、逻辑严谨的高级 AI 智能助手。请清晰、结构化地回答用户的问题。在生成代码时，请附带简洁的注释。',
+        temperature: 0.7,
+        topP: 1.0,
+        maxTokens: 4096,
+        stream: true
+      },
+      currentChatId: null,
+      chats: []
+    };
+
+    // Controller for aborting ongoing SSE stream
+    let currentAbortController = null;
+    let isGenerating = false;
+
+    function setupMarkedRenderer() {
+      const renderer = new marked.Renderer();
+      renderer.code = function(code, language) {
+        const lang = language || 'plaintext';
+        const validLang = hljs.getLanguage(lang) ? lang : 'plaintext';
+        let highlighted = '';
+        try {
+          highlighted = hljs.highlight(code, { language: validLang }).value;
+        } catch (e) {
+          highlighted = escapeHtml(code);
+        }
+
+        const id = 'code-' + Math.random().toString(36).substring(2, 9);
+        return `
+          <div class="code-block-wrapper">
+            <div class="code-block-header">
+              <span><i class="fa-solid fa-code mr-1.5"></i>${validLang}</span>
+              <button onclick="copyCodeBlock('${id}', this)" class="hover:text-white transition flex items-center gap-1">
+                <i class="fa-regular fa-copy"></i>
+                <span>复制</span>
+              </button>
+            </div>
+            <pre><code id="${id}" class="hljs ${validLang}">${highlighted}</code></pre>
+          </div>
+        `;
+      };
+
+      marked.setOptions({
+        renderer: renderer,
+        breaks: true,
+        gfm: true
+      });
+    }
+
+    function initApplication() {
+      setupMarkedRenderer();
+      loadStateFromStorage();
+
+      if (appState.chats.length === 0) {
+        createNewChat(false);
+      } else {
+        if (!appState.currentChatId || !appState.chats.find(c => c.id === appState.currentChatId)) {
+          appState.currentChatId = appState.chats[0].id;
+        }
+      }
+
+      renderSidebarSessions();
+      updateHeaderAndSidebarBadges();
+      renderCurrentChatMessages();
+      syncParamUI();
+    }
+
+    function loadStateFromStorage() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.platforms && Array.isArray(parsed.platforms)) appState.platforms = parsed.platforms;
+          if (parsed.activePlatformId) appState.activePlatformId = parsed.activePlatformId;
+          if (parsed.params) appState.params = { ...appState.params, ...parsed.params };
+          if (parsed.chats && Array.isArray(parsed.chats)) appState.chats = parsed.chats;
+          if (parsed.currentChatId) appState.currentChatId = parsed.currentChatId;
+        }
+      } catch (err) {
+        console.error('加载本地存储失败:', err);
+      }
+    }
+
+    function saveStateToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (err) {
+        console.error('持久化存储失败:', err);
+        showToast('本地存储容量超限或异常', 'error');
+      }
+    }
+
+    function getActivePlatform() {
+      let platform = appState.platforms.find(p => p.id === appState.activePlatformId);
+      if (!platform) {
+        platform = appState.platforms[0];
+        appState.activePlatformId = platform.id;
+      }
+      return platform;
+    }
+
+    function getCurrentChat() {
+      return appState.chats.find(c => c.id === appState.currentChatId);
+    }
+
+    function updateHeaderAndSidebarBadges() {
+      const p = getActivePlatform();
+      document.getElementById('sidebarPlatformName').innerText = p.name;
+      document.getElementById('sidebarModelName').innerText = p.model || '未设定模型';
+      
+      document.getElementById('headerPlatformBadge').innerText = p.name;
+      document.getElementById('headerModelBadge').innerText = p.model || '未设定模型';
+
+      document.getElementById('footerStreamTag').innerText = appState.params.stream ? '开启' : '关闭';
+      document.getElementById('footerTempTag').innerText = appState.params.temperature;
+    }
+
+    function createNewChat(shouldRender = true) {
+      const newChat = {
+        id: 'chat_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        title: '新对话',
+        createdAt: Date.now(),
+        messages: []
+      };
+      appState.chats.unshift(newChat);
+      appState.currentChatId = newChat.id;
+      saveStateToStorage();
+
+      if (shouldRender) {
+        renderSidebarSessions();
+        renderCurrentChatMessages();
+        toggleSidebar(false);
+      }
+    }
+
+    function switchChat(chatId) {
+      if (isGenerating) {
+        showToast('请等待当前对话生成完毕或点击停止', 'warning');
+        return;
+      }
+      appState.currentChatId = chatId;
+      saveStateToStorage();
+      renderSidebarSessions();
+      renderCurrentChatMessages();
+      toggleSidebar(false);
+    }
+
+    function deleteChat(chatId, event) {
+      if (event) event.stopPropagation();
+      if (appState.chats.length <= 1) {
+        // Reset the single chat
+        const chat = appState.chats[0];
+        chat.title = '新对话';
+        chat.messages = [];
+        saveStateToStorage();
+        renderSidebarSessions();
+        renderCurrentChatMessages();
+        showToast('已重置当前对话', 'info');
+        return;
+      }
+
+      appState.chats = appState.chats.filter(c => c.id !== chatId);
+      if (appState.currentChatId === chatId) {
+        appState.currentChatId = appState.chats[0].id;
+      }
+      saveStateToStorage();
+      renderSidebarSessions();
+      renderCurrentChatMessages();
+      showToast('已删除对话', 'info');
+    }
+
+    function clearCurrentChatMessages() {
+      const chat = getCurrentChat();
+      if (!chat) return;
+      if (chat.messages.length === 0) {
+        showToast('当前对话已无消息', 'info');
+        return;
+      }
+      chat.messages = [];
+      chat.title = '新对话';
+      saveStateToStorage();
+      renderSidebarSessions();
+      renderCurrentChatMessages();
+      showToast('聊天记录已清空', 'success');
+    }
+
+    function renderSidebarSessions() {
+      const listEl = document.getElementById('chatSessionsList');
+      listEl.innerHTML = '';
+
+      appState.chats.forEach(chat => {
+        const isActive = chat.id === appState.currentChatId;
+        const div = document.createElement('div');
+        div.className = `group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition text-xs ${
+          isActive 
+            ? 'bg-slate-800 text-white font-medium shadow-sm' 
+            : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+        }`;
+        div.onclick = () => switchChat(chat.id);
+
+        div.innerHTML = `
+          <div class="flex items-center gap-2.5 min-w-0">
+            <i class="fa-regular fa-message ${isActive ? 'text-indigo-400' : 'text-slate-500'} text-xs shrink-0"></i>
+            <span class="truncate">${escapeHtml(chat.title || '新对话')}</span>
+          </div>
+          <button onclick="deleteChat('${chat.id}', event)" class="opacity-0 group-hover:opacity-100 hover:text-rose-400 p-1 transition-opacity">
+            <i class="fa-regular fa-trash-can text-xs"></i>
+          </button>
+        `;
+        listEl.appendChild(div);
+      });
+    }
+
+    function renderCurrentChatMessages() {
+      const container = document.getElementById('messagesContainer');
+      const chat = getCurrentChat();
+
+      if (!chat || chat.messages.length === 0) {
+        container.innerHTML = '';
+        const welcome = document.getElementById('welcomePlaceholder');
+        if (welcome) {
+          container.appendChild(welcome);
+          welcome.classList.remove('hidden');
+        }
+        document.getElementById('currentChatTitle').innerText = '新的对话';
+        return;
+      }
+
+      document.getElementById('currentChatTitle').innerText = chat.title || '对话中';
+      container.innerHTML = '';
+
+      chat.messages.forEach((msg, idx) => {
+        appendMessageElementToDOM(msg, idx, container);
+      });
+
+      scrollChatToBottom();
+    }
+
+    function appendMessageElementToDOM(msg, index, container) {
+      const isUser = msg.role === 'user';
+      const wrapper = document.createElement('div');
+      wrapper.id = `msg-${index}`;
+      wrapper.className = `flex gap-3 md:gap-4 max-w-4xl mx-auto ${isUser ? 'justify-end' : 'justify-start'}`;
+
+      if (isUser) {
+        wrapper.innerHTML = `
+          <div class="flex flex-col items-end max-w-[85%] md:max-w-[75%]">
+            <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-none px-4 py-3 text-sm shadow-md whitespace-pre-wrap leading-relaxed select-text">
+              ${escapeHtml(msg.content)}
+            </div>
+            <div class="flex items-center gap-2 mt-1 mr-1 text-[11px] text-slate-500">
+              <span>${formatTimestamp(msg.timestamp)}</span>
+              <button onclick="copyToClipboard('${escapeJsString(msg.content)}')" class="hover:text-slate-300"><i class="fa-regular fa-copy"></i></button>
+            </div>
+          </div>
+          <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0 text-slate-300 text-xs">
+            <i class="fa-regular fa-user"></i>
+          </div>
+        `;
+      } else {
+        // AI assistant message (may contain DeepSeek-style reasoning content)
+        const hasReasoning = Boolean(msg.reasoning);
+        const parsedHtml = marked.parse(msg.content || '');
+
+        wrapper.innerHTML = `
+          <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center shrink-0 text-white text-xs shadow-md shadow-indigo-500/20">
+            <i class="fa-solid fa-robot"></i>
+          </div>
+          <div class="flex flex-col items-start max-w-[90%] md:max-w-[85%] min-w-0">
+            
+            <!-- Optional Reasoning / Thinking fold block -->
+            ${hasReasoning ? `
+              <details class="w-full mb-2 bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden text-xs">
+                <summary class="px-3 py-2 cursor-pointer font-medium text-indigo-300 hover:bg-slate-800/50 flex items-center gap-2 select-none">
+                  <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                  <span>深度思考过程 (点击展开/折叠)</span>
+                </summary>
+                <div class="p-3 border-t border-slate-800/60 text-slate-400 leading-relaxed font-mono whitespace-pre-wrap select-text text-[11px] bg-slate-950/40">
+                  ${escapeHtml(msg.reasoning)}
+                </div>
+              </details>
+            ` : ''}
+
+            <div class="prose-ai bg-[#111827] border border-slate-800 rounded-2xl rounded-tl-none px-4 py-3.5 shadow-md w-full select-text">
+              ${parsedHtml}
+            </div>
+
+            <div class="flex items-center gap-3 mt-1.5 ml-1 text-[11px] text-slate-500">
+              <span>${formatTimestamp(msg.timestamp)}</span>
+              <button onclick="copyToClipboard('${escapeJsString(msg.content)}')" class="hover:text-slate-300 flex items-center gap-1">
+                <i class="fa-regular fa-copy"></i> 复制全文
+              </button>
+              <button onclick="regenerateFromIndex(${index})" class="hover:text-indigo-400 flex items-center gap-1">
+                <i class="fa-solid fa-arrows-rotate"></i> 重新生成
+              </button>
+              <button onclick="deleteSingleMessage(${index})" class="hover:text-rose-400 flex items-center gap-1">
+                <i class="fa-regular fa-trash-can"></i> 删除
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      container.appendChild(wrapper);
+    }
+
+    async function sendMessage() {
+      if (isGenerating) return;
+      const inputEl = document.getElementById('chatInput');
+      const content = inputEl.value.trim();
+      if (!content) return;
+
+      const platform = getActivePlatform();
+      if (!platform.baseUrl) {
+        showToast('请在设置中配置有效的 Base URL', 'error');
+        openSettingsModal('platforms');
+        return;
+      }
+      if (!platform.model) {
+        showToast('请选择或指定模型名称 (Model)', 'error');
+        openSettingsModal('platforms');
+        return;
+      }
+
+      const chat = getCurrentChat();
+      if (!chat) return;
+
+      // Reset input box
+      inputEl.value = '';
+      autoResizeTextarea(inputEl);
+
+      // Append user message
+      const userMessage = {
+        role: 'user',
+        content: content,
+        timestamp: Date.now()
+      };
+      chat.messages.push(userMessage);
+
+      // Auto update title if this is first message
+      if (chat.messages.length === 1) {
+        chat.title = content.slice(0, 20) + (content.length > 20 ? '...' : '');
+      }
+
+      saveStateToStorage();
+      renderSidebarSessions();
+      renderCurrentChatMessages();
+
+      // Trigger AI API dispatch
+      await executeChatCompletion();
+    }
+
+    function resolveCompletionsUrl(baseUrl) {
+      let clean = baseUrl.trim().replace(/\/+$/, '');
+      if (clean.endsWith('/chat/completions')) {
+        return clean;
+      }
+      return `${clean}/chat/completions`;
+    }
+
+    async function executeChatCompletion() {
+      const platform = getActivePlatform();
+      const chat = getCurrentChat();
+      const requestUrl = resolveCompletionsUrl(platform.baseUrl);
+
+      // Prepare request payload messages with System Prompt
+      const apiMessages = [];
+      if (appState.params.systemPrompt.trim()) {
+        apiMessages.push({
+          role: 'system',
+          content: appState.params.systemPrompt.trim()
+        });
+      }
+
+      // Add full history
+      chat.messages.forEach(m => {
+        apiMessages.push({
+          role: m.role,
+          content: m.content
+        });
+      });
+
+      const requestBody = {
+        model: platform.model,
+        messages: apiMessages,
+        temperature: parseFloat(appState.params.temperature),
+        top_p: parseFloat(appState.params.topP),
+        max_tokens: parseInt(appState.params.maxTokens, 10),
+        stream: appState.params.stream
+      };
+
+      // Create new assistant placeholder message
+      const assistantMessage = {
+        role: 'assistant',
+        content: '',
+        reasoning: '',
+        timestamp: Date.now()
+      };
+      chat.messages.push(assistantMessage);
+      const assistantMsgIndex = chat.messages.length - 1;
+
+      // Update UI for generating state
+      setGeneratingState(true);
+      renderCurrentChatMessages();
+
+      currentAbortController = new AbortController();
+
+      try {
+        const headers = {
+          'Content-Type': 'application/json'
         };
-
-        let currentAbortController = null;
-        let isGenerating = false;
-
-        // --- Initialization ---
-        window.onload = function() {
-            loadFromLocalStorage();
-            if (state.darkMode) {
-                document.documentElement.classList.add('dark');
-            }
-            
-            // If no chats, create initial chat
-            if (state.chats.length === 0) {
-                createNewChat(false);
-            } else if (!state.currentChatId) {
-                state.currentChatId = state.chats[0].id;
-            }
-
-            initPlatformsDropdowns();
-            renderChatList();
-            renderCurrentChat();
-            updatePlatformBadge();
-            
-            // Mobile sidebar toggles
-            document.getElementById('open-sidebar').addEventListener('click', toggleSidebar);
-            document.getElementById('close-sidebar').addEventListener('click', toggleSidebar);
-            document.getElementById('sidebar-overlay').addEventListener('click', toggleSidebar);
-        };
-
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            sidebar.classList.toggle('-translate-x-full');
-            overlay.classList.toggle('hidden');
+        if (platform.apiKey && platform.apiKey.trim()) {
+          headers['Authorization'] = `Bearer ${platform.apiKey.trim()}`;
         }
 
-        function toggleDarkMode() {
-            state.darkMode = !state.darkMode;
-            document.documentElement.classList.toggle('dark', state.darkMode);
-            saveToLocalStorage();
+        const response = await fetch(requestUrl, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(requestBody),
+          signal: currentAbortController.signal
+        });
+
+        if (!response.ok) {
+          let errorDetail = '';
+          try {
+            const errJson = await response.json();
+            errorDetail = errJson.error?.message || JSON.stringify(errJson);
+          } catch (_) {
+            errorDetail = await response.text();
+          }
+          throw new Error(`[HTTP ${response.status}] ${errorDetail || '请求失败'}`);
         }
 
-        // --- LocalStorage persistence ---
-        function saveToLocalStorage() {
-            try {
-                localStorage.setItem('omnichat_state', JSON.stringify(state));
-            } catch (e) {
-                console.error('Save to localStorage failed', e);
-            }
-        }
+        if (appState.params.stream && response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let buffer = '';
 
-        function loadFromLocalStorage() {
-            try {
-                const saved = localStorage.getItem('omnichat_state');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    state = { ...state, ...parsed };
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep uncompleted tail in buffer
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || trimmed.startsWith(':')) continue; // Ignore empty / SSE comment ping lines
+              if (trimmed === 'data: [DONE]') continue;
+
+              if (trimmed.startsWith('data:')) {
+                const jsonStr = trimmed.replace(/^data:\s*/, '');
+                try {
+                  const data = JSON.parse(jsonStr);
+                  const delta = data.choices?.[0]?.delta;
+                  if (!delta) continue;
+
+                  // Handle reasoning_content (DeepSeek R1 / thinking models)
+                  if (delta.reasoning_content) {
+                    assistantMessage.reasoning += delta.reasoning_content;
+                  }
+                  // Handle standard content
+                  if (delta.content) {
+                    assistantMessage.content += delta.content;
+                  }
+
+                  updateStreamingBubble(assistantMsgIndex, assistantMessage);
+                } catch (jsonErr) {
+                  // Ignore incomplete JSON chunks silently
                 }
-            } catch (e) {
-                console.error('Load from localStorage failed', e);
+              }
             }
+          }
+        } else {
+          // Non-stream response fallback
+          const json = await response.json();
+          const choice = json.choices?.[0];
+          assistantMessage.content = choice?.message?.content || '（无响应内容）';
+          if (choice?.message?.reasoning_content) {
+            assistantMessage.reasoning = choice.message.reasoning_content;
+          }
         }
 
-        // --- Toast notification ---
-        function showToast(msg, type = 'success') {
-            const toast = document.getElementById('toast');
-            const toastMsg = document.getElementById('toast-msg');
-            const toastIcon = document.getElementById('toast-icon');
-            
-            toastMsg.innerText = msg;
-            if (type === 'success') {
-                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
-            } else {
-                toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-400';
-            }
-            
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          showToast('已停止生成', 'info');
+          if (!assistantMessage.content && !assistantMessage.reasoning) {
+            assistantMessage.content = '（生成已中止）';
+          }
+        } else {
+          console.error('API Error:', err);
+          assistantMessage.content += `\n\n> ⚠️ **调用发生错误**: ${escapeHtml(err.message)}\n> \n> **排查建议**:\n> 1. 确认 API Key 余额充足以且有效；\n> 2. 确认 Base URL (${escapeHtml(platform.baseUrl)}) 是否支持浏览器 CORS 跨域请求；\n> 3. 检查模型名称是否拼写无误。`;
+          showToast('请求失败: ' + err.message, 'error');
+        }
+      } finally {
+        setGeneratingState(false);
+        saveStateToStorage();
+        renderCurrentChatMessages();
+      }
+    }
+
+    function updateStreamingBubble(msgIndex, msg) {
+      const msgWrapper = document.getElementById(`msg-${msgIndex}`);
+      if (!msgWrapper) {
+        renderCurrentChatMessages();
+        return;
+      }
+
+      const contentBox = msgWrapper.querySelector('.prose-ai');
+      if (contentBox) {
+        contentBox.innerHTML = marked.parse(msg.content || '') + '<span class="typing-cursor"></span>';
+      }
+
+      // If reasoning content exists and accordion is not yet present, update full item
+      if (msg.reasoning && !msgWrapper.querySelector('details')) {
+        renderCurrentChatMessages();
+      } else if (msg.reasoning) {
+        const detailsContent = msgWrapper.querySelector('details div');
+        if (detailsContent) detailsContent.innerText = msg.reasoning;
+      }
+
+      scrollChatToBottom();
+    }
+
+    function abortCurrentStream() {
+      if (currentAbortController) {
+        currentAbortController.abort();
+      }
+    }
+
+    function setGeneratingState(generating) {
+      isGenerating = generating;
+      const statusBadge = document.getElementById('streamStatusBadge');
+      const sendBtn = document.getElementById('sendBtn');
+      const inputEl = document.getElementById('chatInput');
+
+      if (generating) {
+        statusBadge.classList.remove('hidden');
+        statusBadge.classList.add('flex');
+        sendBtn.disabled = true;
+      } else {
+        statusBadge.classList.add('hidden');
+        statusBadge.classList.remove('flex');
+        sendBtn.disabled = false;
+        currentAbortController = null;
+      }
+    }
+
+    function regenerateFromIndex(msgIndex) {
+      if (isGenerating) return;
+      const chat = getCurrentChat();
+      if (!chat) return;
+
+      // Truncate messages back to the prompt before this assistant response
+      if (chat.messages[msgIndex].role === 'assistant') {
+        chat.messages.splice(msgIndex, chat.messages.length - msgIndex);
+      }
+      saveStateToStorage();
+      renderCurrentChatMessages();
+      executeChatCompletion();
+    }
+
+    function deleteSingleMessage(msgIndex) {
+      const chat = getCurrentChat();
+      if (!chat) return;
+      chat.messages.splice(msgIndex, 1);
+      saveStateToStorage();
+      renderCurrentChatMessages();
+      showToast('消息已删除', 'info');
+    }
+
+    function openSettingsModal(defaultTab = 'platforms') {
+      const modal = document.getElementById('settingsModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      populatePlatformDropdown();
+      loadPlatformForm(getActivePlatform());
+      syncParamUI();
+      switchSettingsTab(defaultTab);
+    }
+
+    function closeSettingsModal() {
+      const modal = document.getElementById('settingsModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function switchSettingsTab(tabName) {
+      const tabPlatforms = document.getElementById('tabContentPlatforms');
+      const tabParams = document.getElementById('tabContentParams');
+      const btnPlatforms = document.getElementById('tabBtnPlatforms');
+      const btnParams = document.getElementById('tabBtnParams');
+
+      if (tabName === 'platforms') {
+        tabPlatforms.classList.remove('hidden');
+        tabParams.classList.add('hidden');
+        btnPlatforms.className = 'py-2.5 px-4 text-xs font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2';
+        btnParams.className = 'py-2.5 px-4 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2';
+      } else {
+        tabPlatforms.classList.add('hidden');
+        tabParams.classList.remove('hidden');
+        btnParams.className = 'py-2.5 px-4 text-xs font-semibold border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2';
+        btnPlatforms.className = 'py-2.5 px-4 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2';
+      }
+    }
+
+    function populatePlatformDropdown() {
+      const select = document.getElementById('platformSelect');
+      select.innerHTML = '';
+      appState.platforms.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        opt.selected = p.id === appState.activePlatformId;
+        select.appendChild(opt);
+      });
+    }
+
+    function onPlatformSelected(platformId) {
+      appState.activePlatformId = platformId;
+      const platform = getActivePlatform();
+      loadPlatformForm(platform);
+    }
+
+    function loadPlatformForm(platform) {
+      document.getElementById('inputPlatformName').value = platform.name || '';
+      document.getElementById('inputBaseUrl').value = platform.baseUrl || '';
+      document.getElementById('inputApiKey').value = platform.apiKey || '';
+      document.getElementById('inputCustomModel').value = platform.model || '';
+
+      // Populate models
+      renderModelDropdownOptions(platform);
+    }
+
+    function renderModelDropdownOptions(platform) {
+      const dropdown = document.getElementById('modelDropdown');
+      dropdown.innerHTML = '';
+
+      const models = platform.availableModels || [];
+      if (!models.includes(platform.model) && platform.model) {
+        models.unshift(platform.model);
+      }
+
+      models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        opt.selected = m === platform.model;
+        dropdown.appendChild(opt);
+      });
+    }
+
+    function onModelDropdownSelected(selectedModel) {
+      document.getElementById('inputCustomModel').value = selectedModel;
+    }
+
+    function addNewCustomPlatform() {
+      const newId = 'custom_' + Date.now();
+      const newPlatform = {
+        id: newId,
+        name: '自定义 API 平台',
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: '',
+        model: 'gpt-4o',
+        availableModels: ['gpt-4o', 'gpt-4o-mini']
+      };
+      appState.platforms.push(newPlatform);
+      appState.activePlatformId = newId;
+      populatePlatformDropdown();
+      loadPlatformForm(newPlatform);
+      showToast('已新建自定义平台，请填写 Base URL 及 Key', 'info');
+    }
+
+    function deleteCurrentPlatform() {
+      if (appState.platforms.length <= 1) {
+        showToast('至少保留一个平台', 'warning');
+        return;
+      }
+      appState.platforms = appState.platforms.filter(p => p.id !== appState.activePlatformId);
+      appState.activePlatformId = appState.platforms[0].id;
+      populatePlatformDropdown();
+      loadPlatformForm(getActivePlatform());
+      showToast('已删除平台', 'info');
+    }
+
+    async function fetchPlatformModels() {
+      const spinner = document.getElementById('fetchModelSpinner');
+      const baseUrl = document.getElementById('inputBaseUrl').value.trim();
+      const apiKey = document.getElementById('inputApiKey').value.trim();
+
+      if (!baseUrl) {
+        showToast('请先输入 Base URL', 'warning');
+        return;
+      }
+
+      spinner.classList.add('fa-spin');
+
+      // Construct models endpoint
+      let cleanUrl = baseUrl.replace(/\/+$/, '');
+      if (cleanUrl.endsWith('/chat/completions')) {
+        cleanUrl = cleanUrl.replace(/\/chat\/completions$/, '');
+      }
+      const modelsUrl = `${cleanUrl}/models`;
+
+      try {
+        const headers = {};
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const res = await fetch(modelsUrl, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+        const data = await res.json();
+        let modelList = [];
+
+        if (Array.isArray(data.data)) {
+          modelList = data.data.map(m => m.id);
+        } else if (Array.isArray(data.models)) {
+          modelList = data.models.map(m => m.name || m.id);
         }
 
-        // --- STREAMING_CHUNK:Implementing Platform & Model selection logic... ---
-        function initPlatformsDropdowns() {
-            const platformSelect = document.getElementById('quick-platform-select');
-            platformSelect.innerHTML = '';
-            
-            if (state.platforms.length === 0) {
-                platformSelect.innerHTML = '<option value="">暂无平台，请添加</option>';
-                document.getElementById('quick-model-select').innerHTML = '<option value="">无可用模型</option>';
-                return;
-            }
-
-            state.platforms.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = p.name;
-                if (p.id === state.currentPlatformId) opt.selected = true;
-                platformSelect.appendChild(opt);
-            });
-
-            updateModelDropdown();
+        if (modelList.length === 0) {
+          throw new Error('未能从接口解析到模型列表');
         }
 
-        function updateModelDropdown() {
-            const modelSelect = document.getElementById('quick-model-select');
-            modelSelect.innerHTML = '';
+        const platform = getActivePlatform();
+        platform.availableModels = modelList;
+        renderModelDropdownOptions(platform);
+        showToast(`成功发现 ${modelList.length} 个可用模型！`, 'success');
+      } catch (err) {
+        console.error('拉取模型列表失败:', err);
+        showToast(`拉取失败: ${err.message} (建议手动输入模型名)`, 'error');
+      } finally {
+        spinner.classList.remove('fa-spin');
+      }
+    }
 
-            const platform = state.platforms.find(p => p.id === state.currentPlatformId);
-            if (!platform || !platform.models || platform.models.length === 0) {
-                modelSelect.innerHTML = '<option value="">暂无模型</option>';
-                state.currentModel = '';
-                return;
-            }
-
-            platform.models.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m;
-                opt.textContent = m;
-                if (m === state.currentModel) opt.selected = true;
-                modelSelect.appendChild(opt);
-            });
-
-            // If current model is not in this platform, select the first one
-            if (!platform.models.includes(state.currentModel)) {
-                state.currentModel = platform.models[0];
-                modelSelect.value = state.currentModel;
-            }
-
-            updatePlatformBadge();
-            saveToLocalStorage();
+    function saveAllSettings() {
+      const platform = getActivePlatform();
+      platform.name = document.getElementById('inputPlatformName').value.trim() || '未命名平台';
+      platform.baseUrl = document.getElementById('inputBaseUrl').value.trim();
+      platform.apiKey = document.getElementById('inputApiKey').value.trim();
+      
+      const customModel = document.getElementById('inputCustomModel').value.trim();
+      if (customModel) {
+        platform.model = customModel;
+        if (!platform.availableModels.includes(customModel)) {
+          platform.availableModels.unshift(customModel);
         }
+      }
 
-        function onQuickPlatformChange() {
-            const platformSelect = document.getElementById('quick-platform-select');
-            state.currentPlatformId = platformSelect.value;
-            updateModelDropdown();
+      // Save parameters
+      appState.params.systemPrompt = document.getElementById('paramSystemPrompt').value;
+      appState.params.temperature = parseFloat(document.getElementById('paramTemp').value);
+      appState.params.topP = parseFloat(document.getElementById('paramTopP').value);
+      appState.params.maxTokens = parseInt(document.getElementById('paramMaxTokens').value, 10) || 4096;
+      appState.params.stream = document.getElementById('paramStream').checked;
+
+      saveStateToStorage();
+      updateHeaderAndSidebarBadges();
+      closeSettingsModal();
+      showToast('设置已成功保存', 'success');
+    }
+
+    function syncParamUI() {
+      document.getElementById('paramSystemPrompt').value = appState.params.systemPrompt;
+      document.getElementById('paramTemp').value = appState.params.temperature;
+      document.getElementById('valTemp').innerText = appState.params.temperature;
+      document.getElementById('paramTopP').value = appState.params.topP;
+      document.getElementById('valTopP').innerText = appState.params.topP;
+      document.getElementById('paramMaxTokens').value = appState.params.maxTokens;
+      document.getElementById('paramStream').checked = appState.params.stream;
+    }
+
+    function setPromptTemplate(type) {
+      const textarea = document.getElementById('paramSystemPrompt');
+      if (type === 'general') {
+        textarea.value = '你是一个知识渊博、逻辑严谨的高级 AI 智能助手。请清晰、结构化地回答用户的问题。在生成代码时，请附带简洁的注释。';
+      } else if (type === 'developer') {
+        textarea.value = '你是一名资深全栈工程师与架构师。请以生产级别的健壮性编写代码，提供规范的类型定义、完善的异常边界防御与清晰的架构解释。避免无意义的客套废话。';
+      } else if (type === 'translator') {
+        textarea.value = '你是一位精通多国语言的专业学术翻译家。请在保持原文专业术语准确性的同时，符合地道自然的中文/英文表达风格。遇到专有名词时在括号内保留原文。';
+      }
+    }
+
+    function toggleApiKeyVisibility() {
+      const input = document.getElementById('inputApiKey');
+      const icon = document.getElementById('apiKeyEyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-regular fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-regular fa-eye';
+      }
+    }
+
+    function exportImportDataModal() {
+      document.getElementById('backupModal').classList.remove('hidden');
+      document.getElementById('backupModal').classList.add('flex');
+    }
+
+    function exportDataToFile() {
+      const jsonStr = JSON.stringify(appState, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `AI_Studio_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('备份文件已下载', 'success');
+    }
+
+    function importDataFromFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (!imported.platforms || !Array.isArray(imported.chats)) {
+            throw new Error('文件格式不符合 AI Studio 规范');
+          }
+          appState = imported;
+          saveStateToStorage();
+          initApplication();
+          document.getElementById('backupModal').classList.add('hidden');
+          showToast('数据恢复成功！', 'success');
+        } catch (err) {
+          showToast('导入失败: ' + err.message, 'error');
         }
-
-        function onQuickModelChange() {
-            const modelSelect = document.getElementById('quick-model-select');
-            state.currentModel = modelSelect.value;
-            updatePlatformBadge();
-            saveToLocalStorage();
-        }
-
-        function updatePlatformBadge() {
-            const platform = state.platforms.find(p => p.id === state.currentPlatformId);
-            const badge = document.getElementById('current-model-badge');
-            if (platform && state.currentModel) {
-                badge.innerText = `${platform.name} / ${state.currentModel}`;
-            } else {
-                badge.innerText = '未配置或未选择模型';
-            }
-        }
-
-        function quickSelectFirstPlatform() {
-            closePlatformModal();
-            if (state.platforms.length > 0) {
-                state.currentPlatformId = state.platforms[0].id;
-                updateModelDropdown();
-            } else {
-                openPlatformModal();
-            }
-        }
-
-        // --- STREAMING_CHUNK:Implementing Platform Management Modal logic... ---
-        function openPlatformModal() {
-            renderPlatformsEditor();
-            document.getElementById('platform-modal').classList.remove('hidden');
-        }
-
-        function closePlatformModal() {
-            document.getElementById('platform-modal').classList.add('hidden');
-        }
-
-        function renderPlatformsEditor() {
-            const container = document.getElementById('platforms-container');
-            container.innerHTML = '';
-
-            state.platforms.forEach((p, idx) => {
-                const card = document.createElement('div');
-                card.className = 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3 relative';
-                card.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-indigo-500">平台 #${idx + 1}</span>
-                        <button onclick="removePlatform(${idx})" class="text-slate-400 hover:text-rose-500 transition text-sm">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">平台名称</label>
-                            <input type="text" value="${escapeHtml(p.name)}" data-id="${p.id}" data-field="name" onchange="updatePlatformField(this)" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">API Key</label>
-                            <input type="password" value="${escapeHtml(p.apiKey)}" data-id="${p.id}" data-field="apiKey" onchange="updatePlatformField(this)" placeholder="sk-..." class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">API Base URL (兼容 OpenAI 格式)</label>
-                        <input type="text" value="${escapeHtml(p.baseUrl)}" data-id="${p.id}" data-field="baseUrl" onchange="updatePlatformField(this)" placeholder="https://api.openai.com/v1" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400">可用模型列表 (用逗号分隔)</label>
-                            <button onclick="fetchModelsForPlatform('${p.id}')" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center space-x-1">
-                                <i class="fa-solid fa-rotate"></i>
-                                <span>获取在线模型</span>
-                            </button>
-                        </div>
-                        <input type="text" value="${escapeHtml(p.models.join(', '))}" data-id="${p.id}" data-field="models" onchange="updatePlatformModels(this)" placeholder="gpt-4o, gpt-3.5-turbo" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-            document.getElementById('platform-count').innerText = state.platforms.length;
-        }
-
-        function addNewPlatformCard() {
-            const newId = 'platform_' + Date.now();
-            state.platforms.push({
-                id: newId,
-                name: '自定义平台',
-                baseUrl: 'https://api.openai.com/v1',
-                apiKey: '',
-                models: ['gpt-3.5-turbo']
-            });
-            renderPlatformsEditor();
-        }
-
-        function removePlatform(idx) {
-            if (state.platforms.length <= 1) {
-                showToast('至少需要保留一个平台配置', 'error');
-                return;
-            }
-            state.platforms.splice(idx, 1);
-            renderPlatformsEditor();
-        }
-
-        function updatePlatformField(input) {
-            const id = input.getAttribute('data-id');
-            const field = input.getAttribute('data-field');
-            const val = input.value;
-            const platform = state.platforms.find(p => p.id === id);
-            if (platform) {
-                platform[field] = val;
-            }
-        }
-
-        function updatePlatformModels(input) {
-            const id = input.getAttribute('data-id');
-            const val = input.value;
-            const platform = state.platforms.find(p => p.id === id);
-            if (platform) {
-                platform.models = val.split(',').map(m => m.trim()).filter(Boolean);
-            }
-        }
-
-        async function fetchModelsForPlatform(id) {
-            const platform = state.platforms.find(p => p.id === id);
-            if (!platform) return;
-            if (!platform.apiKey) {
-                showToast('请先填写该平台的 API Key', 'error');
-                return;
-            }
-
-            showToast('正在获取远程模型列表...', 'success');
-            try {
-                let url = platform.baseUrl.replace(/\/+$/, '') + '/models';
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${platform.apiKey}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                if (!response.ok) throw new Error('网络响应失败: ' + response.status);
-                const data = await response.json();
-                if (data && data.data && Array.isArray(data.data)) {
-                    platform.models = data.data.map(m => m.id).sort();
-                    renderPlatformsEditor();
-                    showToast('模型列表获取成功！');
-                } else {
-                    throw new Error('返回数据格式不符合 OpenAI Models 规范');
-                }
-            } catch (e) {
-                console.error(e);
-                showToast('获取模型失败: ' + e.message, 'error');
-            }
-        }
-
-        function savePlatforms() {
-            saveToLocalStorage();
-            initPlatformsDropdowns();
-            closePlatformModal();
-            showToast('平台配置已保存');
-        }
-
-        // --- STREAMING_CHUNK:Implementing Settings Modal logic... ---
-        function openSettingsModal() {
-            document.getElementById('setting-system-prompt').value = state.settings.systemPrompt;
-            document.getElementById('setting-temp').value = state.settings.temperature;
-            document.getElementById('temp-val').innerText = state.settings.temperature;
-            document.getElementById('setting-maxtokens').value = state.settings.maxTokens;
-            document.getElementById('tokens-val').innerText = state.settings.maxTokens;
-            document.getElementById('setting-topp').value = state.settings.topP;
-            document.getElementById('topp-val').innerText = state.settings.topP;
-
-            document.getElementById('settings-modal').classList.remove('hidden');
-        }
-
-        function closeSettingsModal() {
-            document.getElementById('settings-modal').classList.add('hidden');
-        }
-
-        function saveSettings() {
-            state.settings.systemPrompt = document.getElementById('setting-system-prompt').value;
-            state.settings.temperature = parseFloat(document.getElementById('setting-temp').value);
-            state.settings.maxTokens = parseInt(document.getElementById('setting-maxtokens').value);
-            state.settings.topP = parseFloat(document.getElementById('setting-topp').value);
-
-            saveToLocalStorage();
-            closeSettingsModal();
-            showToast('参数设置已更新');
-        }
-
-        // --- STREAMING_CHUNK:Implementing Chat History and Message Management... ---
-        function createNewChat(render = true) {
-            const newChat = {
-                id: 'chat_' + Date.now(),
-                title: '新对话',
-                messages: []
-            };
-            state.chats.unshift(newChat);
-            state.currentChatId = newChat.id;
-            saveToLocalStorage();
-            if (render) {
-                renderChatList();
-                renderCurrentChat();
-                if (window.innerWidth < 768) toggleSidebar();
-            }
-        }
-
-        function selectChat(id) {
-            state.currentChatId = id;
-            saveToLocalStorage();
-            renderChatList();
-            renderCurrentChat();
-            if (window.innerWidth < 768) toggleSidebar();
-        }
-
-        function deleteChat(event, id) {
-            event.stopPropagation();
-            state.chats = state.chats.filter(c => c.id !== id);
-            if (state.chats.length === 0) {
-                createNewChat(false);
-            } else if (state.currentChatId === id) {
-                state.currentChatId = state.chats[0].id;
-            }
-            saveToLocalStorage();
-            renderChatList();
-            renderCurrentChat();
-        }
-
-        function renderChatList() {
-            const listEl = document.getElementById('chat-list');
-            listEl.innerHTML = '';
-
-            state.chats.forEach(chat => {
-                const isActive = chat.id === state.currentChatId;
-                const item = document.createElement('div');
-                item.className = `group flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition ${
-                    isActive 
-                        ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400' 
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`;
-                item.onclick = () => selectChat(chat.id);
-                item.innerHTML = `
-                    <div class="flex items-center space-x-2.5 truncate flex-1 pr-2">
-                        <i class="fa-regular fa-message text-xs opacity-70"></i>
-                        <span class="truncate">${escapeHtml(chat.title)}</span>
-                    </div>
-                    <button onclick="deleteChat(event, '${chat.id}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 p-1 transition">
-                        <i class="fa-solid fa-trash text-xs"></i>
-                    </button>
-                `;
-                listEl.appendChild(item);
-            });
-        }
-
-        function getCurrentChat() {
-            return state.chats.find(c => c.id === state.currentChatId) || state.chats[0];
-        }
-
-        function renderCurrentChat() {
-            const chat = getCurrentChat();
-            if (!chat) return;
-
-            document.getElementById('current-chat-title').innerText = chat.title;
-            const container = document.getElementById('chat-messages');
-            const welcomeScreen = document.getElementById('welcome-screen');
-
-            if (chat.messages.length === 0) {
-                welcomeScreen.classList.remove('hidden');
-                // Remove other message items if any
-                Array.from(container.children).forEach(child => {
-                    if (child.id !== 'welcome-screen') child.remove();
-                });
-                return;
-            }
-
-            welcomeScreen.classList.add('hidden');
-            
-            // Clear existing message elements except welcome screen
-            Array.from(container.children).forEach(child => {
-                if (child.id !== 'welcome-screen') child.remove();
-            });
-
-            chat.messages.forEach(msg => {
-                appendMessageNode(msg.role, msg.content, false);
-            });
-
-            container.scrollTop = container.scrollHeight;
-        }
-
-        // --- STREAMING_CHUNK:Implementing Markdown and Code formatting rendering... ---
-        function appendMessageNode(role, content, scrollToBottom = true) {
-            const container = document.getElementById('chat-messages');
-            const welcomeScreen = document.getElementById('welcome-screen');
-            welcomeScreen.classList.add('hidden');
-
-            const isUser = role === 'user';
-            const wrapper = document.createElement('div');
-            wrapper.className = `flex space-x-3 w-full ${isUser ? 'justify-end' : 'justify-start'}`;
-
-            const avatar = document.createElement('div');
-            avatar.className = `w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs shrink-0 shadow-sm ${
-                isUser ? 'bg-indigo-600 order-2 ml-3' : 'bg-gradient-to-tr from-purple-600 to-indigo-600 order-1 mr-3'
-            }`;
-            avatar.innerHTML = isUser ? '<i class="fa-solid fa-user"></i>' : '<i class="fa-solid fa-brain"></i>';
-
-            const bubble = document.createElement('div');
-            bubble.className = `max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
-                isUser 
-                    ? 'bg-indigo-600 text-white order-1 rounded-tr-none' 
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 order-2 rounded-tl-none markdown-body border border-slate-200/60 dark:border-slate-700/60'
-            }`;
-
-            if (isUser) {
-                bubble.innerText = content;
-            } else {
-                bubble.innerHTML = parseMarkdown(content);
-                // Highlight code blocks
-                bubble.querySelectorAll('pre code').forEach((block) => {
-                    hljs.highlightElement(block);
-                });
-            }
-
-            wrapper.appendChild(avatar);
-            wrapper.appendChild(bubble);
-            container.appendChild(wrapper);
-
-            if (scrollToBottom) {
-                container.scrollTop = container.scrollHeight;
-            }
-        }
-
-        function parseMarkdown(text) {
-            try {
-                marked.setOptions({
-                    highlight: function(code, lang) {
-                        if (lang && hljs.getLanguage(lang)) {
-                            try {
-                                return hljs.highlight(code, { language: lang }).value;
-                            } catch (__) {}
-                        }
-                        return hljs.highlightAuto(code).value;
-                    },
-                    breaks: true,
-                    gfm: true
-                });
-                return marked.parse(text);
-            } catch (e) {
-                console.error('Markdown parse error:', e);
-                return escapeHtml(text);
-            }
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-
-        // --- STREAMING_CHUNK:Implementing Chat API streaming logic... ---
-        function handleKeydown(event) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
-            }
-        }
-
-        function autoResize(textarea) {
-            textarea.style.height = 'auto';
-            textarea.style.height = (textarea.scrollHeight) + 'px';
-            
-            // Estimate tokens roughly (approx 4 chars per token)
-            const chars = textarea.value.length;
-            document.getElementById('token-estimate').innerText = `Token 计数估算: ~${Math.ceil(chars / 4)}`;
-        }
-
-        async function sendMessage() {
-            if (isGenerating) return;
-
-            const inputEl = document.getElementById('user-input');
-            const text = inputEl.value.trim();
-            if (!text) return;
-
-            const platform = state.platforms.find(p => p.id === state.currentPlatformId);
-            if (!platform) {
-                showToast('请先配置并选择 API 平台', 'error');
-                openPlatformModal();
-                return;
-            }
-            if (!platform.apiKey) {
-                showToast('当前平台未填写 API Key', 'error');
-                openPlatformModal();
-                return;
-            }
-            if (!state.currentModel) {
-                showToast('请选择对话模型', 'error');
-                return;
-            }
-
-            inputEl.value = '';
-            inputEl.style.height = 'auto';
-            document.getElementById('token-estimate').innerText = 'Token 计数估算: 0';
-
-            const chat = getCurrentChat();
-            
-            // Auto title if first message
-            if (chat.messages.length === 0) {
-                chat.title = text.length > 20 ? text.substring(0, 20) + '...' : text;
-                renderChatList();
-            }
-
-            chat.messages.push({ role: 'user', content: text });
-            appendMessageNode('user', text);
-            saveToLocalStorage();
-
-            // Prepare API request
-            const messagesPayload = [];
-            if (state.settings.systemPrompt) {
-                messagesPayload.push({ role: 'system', content: state.settings.systemPrompt });
-            }
-            chat.messages.forEach(m => {
-                messagesPayload.push({ role: m.role, content: m.content });
-            });
-
-            // Toggle UI state
-            setGeneratingState(true);
-
-            // Create assistant placeholder message
-            chat.messages.push({ role: 'assistant', content: '' });
-            const assistantMsgIndex = chat.messages.length - 1;
-
-            // Render streaming container
-            const container = document.getElementById('chat-messages');
-            const wrapper = document.createElement('div');
-            wrapper.className = 'flex space-x-3 w-full justify-start';
-            
-            const avatar = document.createElement('div');
-            avatar.className = 'w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs shrink-0 shadow-sm bg-gradient-to-tr from-purple-600 to-indigo-600 order-1 mr-3';
-            avatar.innerHTML = '<i class="fa-solid fa-brain"></i>';
-
-            const bubble = document.createElement('div');
-            bubble.className = 'max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 order-2 rounded-tl-none markdown-body border border-slate-200/60 dark:border-slate-700/60';
-            bubble.innerHTML = '<span class="inline-block animate-pulse">思考中...</span>';
-
-            wrapper.appendChild(avatar);
-            wrapper.appendChild(bubble);
-            container.appendChild(wrapper);
-            container.scrollTop = container.scrollHeight;
-
-            currentAbortController = new AbortController();
-
-            try {
-                let baseUrl = platform.baseUrl.replace(/\/+$/, '');
-                let endpoint = baseUrl + '/chat/completions';
-
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${platform.apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: state.currentModel,
-                        messages: messagesPayload,
-                        temperature: state.settings.temperature,
-                        max_tokens: state.settings.maxTokens,
-                        top_p: state.settings.topP,
-                        stream: true
-                    }),
-                    signal: currentAbortController.signal
-                });
-
-                if (!response.ok) {
-                    const errData = await response.text();
-                    throw new Error(`API 错误 (${response.status}): ${errData}`);
-                }
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder('utf-8');
-                let fullResponse = '';
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop(); // keep last incomplete line
-
-                    for (const line of lines) {
-                        const trimmed = line.trim();
-                        if (!trimmed || trimmed.startsWith(':')) continue;
-                        if (trimmed === 'data: [DONE]') continue;
-
-                        if (trimmed.startsWith('data: ')) {
-                            try {
-                                const json = JSON.parse(trimmed.substring(6));
-                                const delta = json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content;
-                                if (delta) {
-                                    fullResponse += delta;
-                                    chat.messages[assistantMsgIndex].content = fullResponse;
-                                    bubble.innerHTML = parseMarkdown(fullResponse);
-                                    container.scrollTop = container.scrollHeight;
-                                }
-                            } catch (err) {
-                                console.warn('JSON parse chunk warning:', err);
-                            }
-                        }
-                    }
-                }
-
-                // Finalize highlight
-                bubble.querySelectorAll('pre code').forEach((block) => {
-                    hljs.highlightElement(block);
-                });
-                saveToLocalStorage();
-
-            } catch (err) {
-                if (err.name === 'AbortError') {
-                    showToast('已停止生成');
-                } else {
-                    console.error(err);
-                    showToast('请求出错: ' + err.message, 'error');
-                    chat.messages[assistantMsgIndex].content = `[请求失败: ${err.message}]`;
-                    bubble.innerHTML = escapeHtml(chat.messages[assistantMsgIndex].content);
-                }
-                saveToLocalStorage();
-            } finally {
-                setGeneratingState(false);
-                currentAbortController = null;
-            }
-        }
-
-        function stopGeneration() {
-            if (currentAbortController) {
-                currentAbortController.abort();
-            }
-        }
-
-        function setGeneratingState(generating) {
-            isGenerating = generating;
-            const sendBtn = document.getElementById('send-btn');
-            const stopBtn = document.getElementById('stop-btn');
-            const statusText = document.getElementById('status-text');
-
-            if (generating) {
-                sendBtn.classList.add('hidden');
-                stopBtn.classList.remove('hidden');
-                stopBtn.classList.add('flex');
-                statusText.innerText = '生成中...';
-            } else {
-                stopBtn.classList.add('hidden');
-                stopBtn.classList.remove('flex');
-                sendBtn.classList.remove('hidden');
-                statusText.innerText = '就绪';
-            }
-        }
-    </script>
+      };
+      reader.readAsText(file);
+    }
+
+    function autoResizeTextarea(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 180) + 'px';
+    }
+
+    function handleTextareaKeydown(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function quickFillPrompt(text) {
+      const input = document.getElementById('chatInput');
+      input.value = text;
+      autoResizeTextarea(input);
+      input.focus();
+    }
+
+    function toggleSidebar(forceOpen) {
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+      const isOpen = !sidebar.classList.contains('-translate-x-full');
+
+      if (forceOpen === true || (forceOpen === undefined && !isOpen)) {
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+      } else {
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+    }
+
+    function scrollChatToBottom() {
+      const container = document.getElementById('messagesContainer');
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function copyCodeBlock(codeId, button) {
+      const codeEl = document.getElementById(codeId);
+      if (!codeEl) return;
+      copyToClipboard(codeEl.innerText, () => {
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i><span class="text-emerald-400">已复制</span>';
+        setTimeout(() => button.innerHTML = originalText, 1800);
+      });
+    }
+
+    function copyToClipboard(text, successCallback) {
+      // Robust iframe clipboard fallback using execCommand
+      const tempTextArea = document.createElement('textarea');
+      tempTextArea.value = text;
+      tempTextArea.style.position = 'fixed';
+      tempTextArea.style.top = '-9999px';
+      tempTextArea.style.left = '-9999px';
+      document.body.appendChild(tempTextArea);
+      tempTextArea.focus();
+      tempTextArea.select();
+
+      let successful = false;
+      try {
+        successful = document.execCommand('copy');
+      } catch (err) {
+        successful = false;
+      }
+      document.body.removeChild(tempTextArea);
+
+      if (successful) {
+        if (successCallback) successCallback();
+        else showToast('已成功复制到剪贴板', 'success');
+      } else {
+        showToast('复制失败，请手动选取复制', 'error');
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        success: 'bg-emerald-950/90 border-emerald-600/60 text-emerald-200',
+        error: 'bg-rose-950/90 border-rose-600/60 text-rose-200',
+        warning: 'bg-amber-950/90 border-amber-600/60 text-amber-200',
+        info: 'bg-indigo-950/90 border-indigo-600/60 text-indigo-200'
+      };
+
+      const icons = {
+        success: 'fa-solid fa-circle-check text-emerald-400',
+        error: 'fa-solid fa-triangle-exclamation text-rose-400',
+        warning: 'fa-solid fa-circle-exclamation text-amber-400',
+        info: 'fa-solid fa-circle-info text-indigo-400'
+      };
+
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border shadow-xl backdrop-blur-md text-xs transition-all duration-300 transform translate-y-3 opacity-0 ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <i class="${icons[type] || icons.info}"></i>
+        <span class="flex-1 font-medium">${escapeHtml(message)}</span>
+      `;
+
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-3', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-x-4');
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    function escapeHtml(string) {
+      if (!string) return '';
+      return String(string)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function escapeJsString(str) {
+      if (!str) return '';
+      return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
+    }
+
+    function formatTimestamp(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    }
+
+    // Launch application after window load
+    window.addEventListener('DOMContentLoaded', initApplication);
+  </script>
 </body>
 </html>
