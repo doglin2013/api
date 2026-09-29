@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web AI Chat Assistant</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Marked.js 用于渲染 Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.js"></script>
+    <!-- FontAwesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .chat-container::-webkit-scrollbar { width: 6px; }
+        .chat-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark .chat-container::-webkit-scrollbar-thumb { background: #475569; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+        code { font-family: monospace; }
+        p { margin-bottom: 0.75rem; }
+        p:last-child { margin-bottom: 0; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen flex flex-col font-sans overflow-hidden">
+
+    <!-- 顶部导航栏 -->
+    <header class="h-14 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4 shrink-0">
+        <div class="flex items-center space-x-3">
+            <button id="sidebar-toggle" class="md:hidden text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+                <i class="fa-solid fa-bars text-lg"></i>
+            </button>
+            <h1 class="font-bold text-lg flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i> AI Studio
+            </h1>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="openSettings()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition">
+                <i class="fa-solid fa-gear"></i> API 与设置
+            </button>
+        </div>
+    </header>
+
+    <!-- 主体区域 -->
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- 侧边栏：会话历史 -->
+        <aside id="sidebar" class="w-72 bg-slate-100 dark:bg-slate-800/50 border-r border-slate-200 dark:border-slate-700 flex flex-col absolute md:relative inset-y-0 left-0 z-20 transform -translate-x-full md:translate-x-0 transition-transform duration-200">
+            <div class="p-3">
+                <button onclick="createNewChat()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition shadow-sm">
+                    <i class="fa-solid fa-plus"></i> 新建对话
+                </button>
+            </div>
+            <div id="chat-list" class="flex-1 overflow-y-auto px-3 space-y-1">
+                <!-- 动态生成会话列表 -->
+            </div>
+        </aside>
+
+        <!-- 聊天主窗口 -->
+        <main class="flex-1 flex flex-col bg-white dark:bg-slate-900 overflow-hidden relative">
+            <!-- 消息流展示区 -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-6 chat-container">
+                <!-- 欢迎引导 -->
+                <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-center text-slate-400 max-w-md mx-auto">
+                    <i class="fa-solid fa-comments text-5xl mb-4 text-indigo-400"></i>
+                    <h2 class="text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">开始与 AI 畅聊</h2>
+                    <p class="text-sm">请先点击右上角 **API 与设置** 添加你的平台和 API Key，并选择模型，即可开始对话。</p>
+                </div>
+            </div>
+
+            <!-- 输入与控制区 -->
+            <div class="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+                <div class="max-w-4xl mx-auto">
+                    <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500 transition">
+                        <textarea id="user-input" rows="3" placeholder="输入你想问的内容... (Shift + Enter 换行)" class="w-full bg-transparent focus:outline-none resize-none text-slate-800 dark:text-slate-100 text-sm"></textarea>
+                        <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/60">
+                            <div class="flex items-center gap-3 text-xs text-slate-500">
+                                <span id="current-model-tag" class="bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded font-medium">未选择模型</span>
+                            </div>
+                            <button id="send-btn" onclick="sendMessage()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-paper-plane"></i> 发送
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 设置与 API 管理弹窗 -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-sliders text-indigo-500"></i> API 与高级参数设置</h3>
+                <button onclick="closeSettings()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto space-y-6 flex-1">
+                <!-- 平台与 API Key 管理 -->
+                <div>
+                    <label class="block text-sm font-semibold mb-2">API 平台配置</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="text-xs text-slate-500">平台名称</label>
+                            <input type="text" id="platform-name" placeholder="例如：DeepSeek / OpenAI" class="w-full mt-1 p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">API Base URL</label>
+                            <input type="text" id="platform-url" placeholder="https://api.deepseek.com/v1" class="w-full mt-1 p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-xs text-slate-500">API Key</label>
+                        <input type="password" id="platform-key" placeholder="sk-..." class="w-full mt-1 p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="savePlatform()" class="bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 text-white text-xs px-3 py-2 rounded-lg transition font-medium">添加/更新平台</button>
+                        <button onclick="fetchModels()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-2 rounded-lg transition font-medium">获取可用模型</button>
+                    </div>
+                </div>
+
+                <hr class="border-slate-200 dark:border-slate-700">
+
+                <!-- 模型选择 -->
+                <div>
+                    <label class="block text-sm font-semibold mb-2">选择对话模型</label>
+                    <select id="model-select" class="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+                        <option value="">请先获取或手动输入模型</option>
+                    </select>
+                </div>
+
+                <!-- 高级参数 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Temperature (温度: <span id="temp-val">0.7</span>)</label>
+                        <input type="range" id="param-temp" min="0" max="2" step="0.1" value="0.7" oninput="document.getElementById('temp-val').innerText=this.value" class="w-full accent-indigo-600">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Max Tokens</label>
+                        <input type="number" id="param-tokens" value="2048" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">System Prompt (系统提示词)</label>
+                    <textarea id="param-system" rows="2" placeholder="你是一个乐于助人的AI助手..." class="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm"></textarea>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                <button onclick="closeSettings()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition">保存并关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 核心逻辑 -->
+    <script>
+        let state = {
+            platforms: JSON.parse(localStorage.getItem('ai_platforms') || '{}'),
+            currentPlatform: localStorage.getItem('ai_current_platform') || '',
+            currentModel: localStorage.getItem('ai_current_model') || '',
+            chats: JSON.parse(localStorage.getItem('ai_chats') || '[]'),
+            currentChatId: localStorage.getItem('ai_current_chat') || null,
+            params: JSON.parse(localStorage.getItem('ai_params') || '{"temp":0.7,"tokens":2048,"system":"你是一个专业的AI助手。"}')
+        };
+
+        // 初始化加载
+        window.addEventListener('DOMContentLoaded', () => {
+            initParamsUI();
+            renderChatList();
+            if (state.chats.length > 0 && !state.currentChatId) {
+                state.currentChatId = state.chats[0].id;
+            }
+            loadCurrentChat();
+            if(state.currentModel) {
+                document.getElementById('current-model-tag').innerText = state.currentModel;
+            }
+        });
+
+        function saveState() {
+            localStorage.setItem('ai_platforms', JSON.stringify(state.platforms));
+            localStorage.setItem('ai_current_platform', state.currentPlatform);
+            localStorage.setItem('ai_current_model', state.currentModel);
+            localStorage.setItem('ai_chats', JSON.stringify(state.chats));
+            localStorage.setItem('ai_current_chat', state.currentChatId || '');
+            localStorage.setItem('ai_params', JSON.stringify(state.params));
+        }
+
+        function openSettings() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            if (state.currentPlatform && state.platforms[state.currentPlatform]) {
+                const p = state.platforms[state.currentPlatform];
+                document.getElementById('platform-name').value = state.currentPlatform;
+                document.getElementById('platform-url').value = p.url;
+                document.getElementById('platform-key').value = p.key;
+                updateModelDropdown(p.models || []);
+            }
+        }
+
+        function closeSettings() {
+            // 保存参数
+            state.params.temp = parseFloat(document.getElementById('param-temp').value);
+            state.params.tokens = parseInt(document.getElementById('param-tokens').value);
+            state.params.system = document.getElementById('param-system').value;
+            state.currentModel = document.getElementById('model-select').value;
+            
+            if(state.currentModel) {
+                document.getElementById('current-model-tag').innerText = state.currentModel;
+            }
+            saveState();
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function initParamsUI() {
+            document.getElementById('param-temp').value = state.params.temp;
+            document.getElementById('temp-val').innerText = state.params.temp;
+            document.getElementById('param-tokens').value = state.params.tokens;
+            document.getElementById('param-system').value = state.params.system;
+        }
+
+        function savePlatform() {
+            const name = document.getElementById('platform-name').value.trim();
+            const url = document.getElementById('platform-url').value.trim();
+            const key = document.getElementById('platform-key').value.trim();
+            if (!name || !url || !key) {
+                alert('请完整填写平台名称、URL和 Key');
+                return;
+            }
+            state.platforms[name] = { url, key, models: state.platforms[name]?.models || [] };
+            state.currentPlatform = name;
+            saveState();
+            alert('平台保存成功！');
+        }
+
+        async function fetchModels() {
+            const name = document.getElementById('platform-name').value.trim() || state.currentPlatform;
+            const url = document.getElementById('platform-url').value.trim();
+            const key = document.getElementById('platform-key').value.trim();
+            if (!url || !key) {
+                alert('请先填写 URL 和 Key');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${url.replace(/\/$/, '')}/models`, {
+                    headers: { 'Authorization': `Bearer ${key}` }
+                });
+                const data = await res.json();
+                const models = data.data ? data.data.map(m => m.id) : [];
+                if (models.length > 0) {
+                    state.platforms[name] = { url, key, models };
+                    state.currentPlatform = name;
+                    updateModelDropdown(models);
+                    saveState();
+                    alert(`成功获取 ${models.length} 个模型！`);
+                } else {
+                    alert('未解析到模型列表');
+                }
+            } catch (err) {
+                alert('获取模型失败，请检查 URL 或网络跨域设置: ' + err.message);
+            }
+        }
+
+        function updateModelDropdown(models) {
+            const select = document.getElementById('model-select');
+            select.innerHTML = '';
+            models.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.innerText = m;
+                if (m === state.currentModel) opt.selected = true;
+                select.appendChild(opt);
+            });
+            if(models.length > 0 && !state.currentModel) {
+                state.currentModel = models[0];
+                select.value = models[0];
+            }
+        }
+
+        // 会话与聊天逻辑
+        function createNewChat() {
+            const newChat = { id: Date.now().toString(), title: '新对话', messages: [] };
+            state.chats.unshift(newChat);
+            state.currentChatId = newChat.id;
+            saveState();
+            renderChatList();
+            loadCurrentChat();
+        }
+
+        function renderChatList() {
+            const list = document.getElementById('chat-list');
+            list.innerHTML = '';
+            state.chats.forEach(chat => {
+                const item = document.createElement('div');
+                item.className = `p-2.5 rounded-lg text-sm cursor-pointer truncate transition flex items-center justify-between group ${chat.id === state.currentChatId ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-medium' : 'hover:bg-slate-200/50 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-300'}`;
+                item.innerHTML = `<span class="truncate">${chat.title}</span><button onclick="deleteChat(event, '${chat.id}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"><i class="fa-solid fa-trash-can text-xs"></i></button>`;
+                item.onclick = () => { state.currentChatId = chat.id; saveState(); renderChatList(); loadCurrentChat(); };
+                list.appendChild(item);
+            });
+        }
+
+        function deleteChat(e, id) {
+            e.stopPropagation();
+            state.chats = state.chats.filter(c => c.id !== id);
+            if (state.currentChatId === id) {
+                state.currentChatId = state.chats[0]?.id || null;
+            }
+            saveState();
+            renderChatList();
+            loadCurrentChat();
+        }
+
+        function loadCurrentChat() {
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = '';
+            const chat = state.chats.find(c => c.id === state.currentChatId);
+            
+            if (!chat || chat.messages.length === 0) {
+                document.getElementById('welcome-screen').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('welcome-screen').classList.add('hidden');
+            chat.messages.forEach(msg => appendMessageUI(msg.role, msg.content));
+        }
+
+        function appendMessageUI(role, content) {
+            const container = document.getElementById('chat-messages');
+            document.getElementById('welcome-screen').classList.add('hidden');
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex gap-3 max-w-4xl mx-auto ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = `w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-white'}`;
+            avatar.innerHTML = role === 'user' ? '<i class="fa-solid fa-user text-xs"></i>' : '<i class="fa-solid fa-robot text-xs"></i>';
+            
+            const bubble = document.createElement('div');
+            bubble.className = `p-3.5 rounded-2xl text-sm leading-relaxed max-w-[85%] ${role === 'user' ? 'bg-indigo-600 text-white rounded-br-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-xs'}`;
+            
+            if (role === 'user') {
+                bubble.innerText = content;
+            } else {
+                bubble.innerHTML = marked.parse(content);
+            }
+            
+            if (role === 'user') {
+                wrapper.appendChild(bubble);
+                wrapper.appendChild(avatar);
+            } else {
+                wrapper.appendChild(avatar);
+                wrapper.appendChild(bubble);
+            }
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+            return bubble;
+        }
+
+        // 发送消息与流式处理
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            if (!state.currentPlatform || !state.platforms[state.currentPlatform]) {
+                alert('请先在右上角设置中配置并选择 API 平台');
+                openSettings();
+                return;
+            }
+            if (!state.currentModel) {
+                alert('请先选择一个大模型');
+                openSettings();
+                return;
+            }
+
+            if (!state.currentChatId) {
+                createNewChat();
+            }
+
+            const chat = state.chats.find(c => c.id === state.currentChatId);
+            if (chat.messages.length === 0) {
+                chat.title = text.slice(0, 15) + '...';
+                renderChatList();
+            }
+
+            chat.messages.push({ role: 'user', content: text });
+            appendMessageUI('user', text);
+            input.value = '';
+            saveState();
+
+            // 准备 API 请求
+            const platform = state.platforms[state.currentPlatform];
+            const messages = [];
+            if (state.params.system) {
+                messages.push({ role: 'system', content: state.params.system });
+            }
+            chat.messages.forEach(m => messages.push({ role: m.role, content: m.content }));
+
+            const assistantBubble = appendMessageUI('assistant', '思考中...');
+            let fullReply = '';
+
+            try {
+                const response = await fetch(`${platform.url.replace(/\/$/, '')}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${platform.key}`
+                    },
+                    body: JSON.stringify({
+                        model: state.currentModel,
+                        messages: messages,
+                        temperature: state.params.temp,
+                        max_tokens: state.params.tokens,
+                        stream: true
+                    })
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`API 错误 (${response.status}): ${errText}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // 保留最后未完成的行
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed.startsWith('data:')) continue;
+                        const jsonStr = trimmed.replace('data:', '').trim();
+                        if (jsonStr === '[DONE]') break;
+                        
+                        try {
+                            const parsed = JSON.parse(jsonStr);
+                            const delta = parsed.choices[0]?.delta?.content || '';
+                            if (delta) {
+                                fullReply += delta;
+                                assistantBubble.innerHTML = marked.parse(fullReply);
+                                assistantBubble.scrollTop = assistantBubble.scrollHeight;
+                            }
+                        } catch (e) {
+                            // 忽略部分不完整的 JSON 解析错误
+                        }
+                    }
+                }
+
+                chat.messages.push({ role: 'assistant', content: fullReply });
+                saveState();
+
+            } catch (err) {
+                assistantBubble.innerHTML = `<span class="text-red-500">请求失败: ${err.message}</span>`;
+            }
+        }
+
+        // 响应回车快捷键
+        document.getElementById('user-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
